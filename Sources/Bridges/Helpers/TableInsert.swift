@@ -93,6 +93,10 @@ extension Table {
         _insert(schema: schema?.schemaName ?? (Self.self as? Schemable.Type)?.schemaName, on: conn)
     }
     
+    public func insert<T: Codable>(inSchema schema: Schemable.Type? = nil, on conn: BridgeConnection, as codable: T) -> EventLoopFuture<T> {
+        _insert(schema: schema?.schemaName ?? (Self.self as? Schemable.Type)?.schemaName, on: conn, as: codable)
+    }
+    
     ///
     
     public func insertNonReturning(inSchema schema: String, on conn: BridgeConnection) -> EventLoopFuture<Void> {
@@ -101,6 +105,10 @@ extension Table {
     
     public func insert(inSchema schema: String, on conn: BridgeConnection) -> EventLoopFuture<Self> {
         _insert(schema: schema, on: conn)
+    }
+    
+    public func insert<T: Codable>(inSchema schema: String, on conn: BridgeConnection, as codable: T) -> EventLoopFuture<T> {
+        _insert(schema: schema, on: conn, as: codable)
     }
     
     ///
@@ -113,6 +121,14 @@ extension Table {
     private func _insert(schema: String?, on conn: BridgeConnection) -> EventLoopFuture<Self> {
         let query = buildInsertQuery(schema: schema, items: allColumns(logger: conn.logger), returning: true)
         return conn.query(sql: query, decoding: Self.self).flatMapThrowing { rows in
+            guard let row = rows.first else { throw BridgesError.failedToDecodeWithReturning }
+            return row
+        }
+    }
+    
+    private func _insert<T: Codable>(schema: String?, on conn: BridgeConnection, as : T) -> EventLoopFuture<T> {
+        let query = buildInsertQuery(schema: schema, items: allColumns(logger: conn.logger), returning: true)
+        return conn.query(sql: query, decoding: T.self).flatMapThrowing { rows in
             guard let row = rows.first else { throw BridgesError.failedToDecodeWithReturning }
             return row
         }
